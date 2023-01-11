@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="UTF-8">
+		<title>MyESP</title>
+		<style>
+			body {
+				background: #111111;
+			}
+			.brick {
+				width: 300px;
+				margin: 4px;
+				padding: 6px;
+				float: left;
+				border-radius: 12px;
+				background: #31496777;
+			}
+			.text {
+				color: white;
+				font-family: Arial;
+				padding: 2px;
+			}
+		</style>
+	</head>
+	
+	<body>
+		<header>
+			<div>
+				<h1 class="text" id="header">Date</h1>
+			</div>
+		</header>
+
+		<div class="brick" id="btnGetJSON">
+			<div class="text">Get json</div>
+			<div class="text">...</div>
+			<div class="text">...</div>
+		</div>
+
+		<div class="brick" id="btnSwicthLed">
+			<div class="text">Switch led</div>
+			<div class="text">Off</div>
+			<div class="text">16:05</div>
+		</div>
+
+		<script>
+			"use strict";
+
+			let JsonDoc;
+
+			let header = document.getElementById('header');
+			let date = new Date();	/* перенести в отдельную функцию и добавить к нему обневение ежесекундно */
+			header.textContent = date.getDate() + '.' + (+date.getMonth()+1) + '.' + date.getFullYear();
+
+			window.addEventListener('load', function() {
+				/* При загрузке окна получаем и парсим JSON*/
+				let xhr = new XMLHttpRequest();
+				xhr.open('GET', '/get_json', true);
+				xhr.onload = () => JsonDoc = JSON.parse(xhr.response);;
+				xhr.send();
+			});
+
+			let btnSwicthLed = document.getElementById("btnSwicthLed");
+			btnSwicthLed.addEventListener('click', function() {
+				let xhr = new XMLHttpRequest();
+				xhr.open('GET', '/led_switch', false);
+				xhr.send();
+			});
+
+			let btnGetJSON = document.getElementById("btnGetJSON");
+			btnGetJSON.addEventListener('click', function() {
+				for (let i = 0; i < 3; i++) {
+					addNewBrick(JsonDoc[i].info, JsonDoc[i].value, JsonDoc[i].time);
+				}
+			});
+
+			function addNewBrick(info, value, time) {
+				let divBrick = document.createElement('div');
+				divBrick.classList.add('brick');
+
+				let divInfo = document.createElement('div');
+				divInfo.classList.add('text');
+				divInfo.textContent = info;
+
+				let divValue = document.createElement('div');
+				divValue.classList.add('text');
+				divValue.textContent = value;
+
+				let divTime = document.createElement('div');
+				divTime.classList.add('text');
+				divTime.textContent = time;
+
+				document.body.appendChild(divBrick);
+				divBrick.appendChild(divInfo);
+				divBrick.appendChild(divValue);
+				divBrick.appendChild(divTime);
+			}
+
+		</script>
+	</body>
+	
+</html>
