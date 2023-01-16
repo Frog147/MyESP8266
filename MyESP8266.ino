@@ -6,7 +6,21 @@
 
 #define led 2
 
-const char *ssid = "AnWiESP";
+const char *ssidSoftAP = "AnWiESP";
+//const char *passSoftAP = "AnWiESP";
+
+/*
+// Настройки IP адреса
+IPAddress local_ipSoftAP(192,168,1,1);
+IPAddress gatewaySoftAP(192,168,1,1);
+IPAddress subnetSoftAP(255,255,255,0);
+*/
+
+const char *ssidSTA = "AnWi";
+const char *passSTA = "AnWiPass";
+
+const char *userFtp = "AnWiESP";
+const char *passFtp = "AnWiESPPass";
 
 ESP8266WebServer HTTP(80);
 FtpServer ftpSrv;
@@ -14,23 +28,32 @@ FtpServer ftpSrv;
 void setup(void){
   pinMode(led, OUTPUT);
   Serial.begin(9600);
-
-  WiFi.softAP(ssid);
+  
+  WiFi.begin(ssidSTA, passSTA);  //Connect to the WiFi network
+  Serial.print("Waiting to connect...");
+  while (WiFi.status() != WL_CONNECTED) {  //Wait for connection
+    delay(500);
+    Serial.print("...");
+  }
+  Serial.print("\nIP (STA) address: ");
+  Serial.println(WiFi.localIP());  //Print the local IP
+  
+  WiFi.softAP(ssidSoftAP);
+  //WiFi.softAPConfig(local_ipSoftAP, gatewaySoftAP, subnetSoftAP);
 
   SPIFFS.begin();
   HTTP.begin();
-  ftpSrv.begin("AnWiESP", "AnWiESPPass");
+  ftpSrv.begin(userFtp, passFtp);
 
-  Serial.print("\nMy IP to connect via Web-Browser or FTP: ");
+  Serial.print("IP (softAP) address: ");
   Serial.println(WiFi.softAPIP());
-  Serial.println("\n");
 
   HTTP.on("/led_switch", [](){
     HTTP.send(200, "text/plain", led_switch());
   });
 
   HTTP.on("/get_json", [](){
-    HTTP.send(200, "application/json", getJson()); //application/json getJson()
+    HTTP.send(200, "application/json", getJson());
   });
 
   HTTP.onNotFound([](){
@@ -52,25 +75,36 @@ String led_switch() {
   return String(state);
 }
 
-String getJson() {
+String getJson() {  
   StaticJsonDocument<256> jsonDoc;
+  JsonObject root = jsonDoc.to<JsonObject>();
 
-  JsonObject obj1 = jsonDoc.createNestedObject();
-  obj1["info"] = "Датчик температуры в зале";
-  obj1["value"] = 22;
-  obj1["time"] = "15:15";
+  JsonObject sensorLED = root.createNestedObject("000");
+  sensorLED["info"] = "Переключить LED";
+  sensorLED["value"] = (bool)digitalRead(led);
+  sensorLED["time"] = "15:15";
 
-  JsonObject obj2 = jsonDoc.createNestedObject();
-  obj2["info"] = "Датчик влажности в зале";
-  obj2["value"] = 63;
-  obj2["time"] = "15:15";
+  JsonObject sensorT = root.createNestedObject("001");
+  sensorT["info"] = "Датчик температуры в зале";
+  sensorT["value"] = 22;
+  sensorT["time"] = "15:15";
 
-  JsonObject obj3 = jsonDoc.createNestedObject();
-  obj3["info"] = "Датчик движения в зале";
-  obj3["value"] = true;
-  obj3["time"] = "15:15";
+  JsonObject sensorH = root.createNestedObject("002");
+  sensorH["info"] = "Датчик влажности в зале";
+  sensorH["value"] = 63;
+  sensorH["time"] = "15:15";
 
-  char buffer[256];
+  JsonObject sensorF = root.createNestedObject("003");
+  sensorF["info"] = "Датчик движения в зале";
+  sensorF["value"] = true;
+  sensorF["time"] = "15:15";
+
+  JsonObject sensorD = root.createNestedObject("004");
+  sensorD["info"] = "Датчик давления в зале";
+  sensorD["value"] = 680;
+  sensorD["time"] = "15:15";
+
+  char buffer[1024];
   serializeJson(jsonDoc, buffer);
   return buffer;
 }

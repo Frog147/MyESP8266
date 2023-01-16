@@ -6,7 +6,7 @@
 		<title>MyESP</title>
 		<style>
 			body {
-				background: #111111;
+				background: #212121;
 			}
 			.brick {
 				width: 300px;
@@ -14,12 +14,24 @@
 				padding: 6px;
 				float: left;
 				border-radius: 12px;
-				background: #31496777;
+				background: #50505077;
 			}
 			.text {
-				color: white;
+				color: rgba(150, 255, 200, 0.8);
 				font-family: Arial;
 				padding: 2px;
+			}
+			.switchStateOff {
+				background: #4e070740
+			}
+			.switchStateOff:active {
+				background: #50505077
+			}
+			.switchStateOn {
+				background: #09490a3b
+			}
+			.switchStateOn:active {
+				background: #50505077
 			}
 		</style>
 	</head>
@@ -31,52 +43,74 @@
 			</div>
 		</header>
 
-		<div class="brick" id="btnGetJSON">
-			<div class="text">Get json</div>
+		<div class="brick" id="btnOneExtendedJsonDoc">
+			<div class="text">btnOneExtendedJsonDoc</div>
 			<div class="text">...</div>
 			<div class="text">...</div>
-		</div>
-
-		<div class="brick" id="btnSwicthLed">
-			<div class="text">Switch led</div>
-			<div class="text">Off</div>
-			<div class="text">16:05</div>
 		</div>
 
 		<script>
 			"use strict";
 
 			let JsonDoc;
-
+			/*
+			JsonDoc = {
+				"000":{"info":"T", "value":15, "time":"12:56"}, 
+				"001":{"info":"H", "value":60, "time":"08:23"},
+				"002":{"info":"V", "value":34, "time":"12:56"}, 
+				"003":{"info":"B", "value":true, "time":"08:23"},
+			};
+			let oneExtendedJsonDoc = {
+				"000":{"info":"T", 
+						"value":[10, 11, 12, 13, 14, 15], 
+						"time":["07:56", "08:56", "09:56", "10:56", "11:56", "12:56"]}, 
+			};
+			*/
 			let header = document.getElementById('header');
 			let date = new Date();	/* перенести в отдельную функцию и добавить к нему обневение ежесекундно */
 			header.textContent = date.getDate() + '.' + (+date.getMonth()+1) + '.' + date.getFullYear();
-
+			
 			window.addEventListener('load', function() {
-				/* При загрузке окна получаем и парсим JSON*/
 				let xhr = new XMLHttpRequest();
 				xhr.open('GET', '/get_json', true);
-				xhr.onload = () => JsonDoc = JSON.parse(xhr.response);;
+				xhr.onload = () => {
+					JsonDoc = JSON.parse(xhr.response);
+					for (let id in JsonDoc) { // добавление элементов на экран
+						addNewBrick(id, JsonDoc[id].info, JsonDoc[id].value, JsonDoc[id].time);
+					}
+
+					// выставим функцию для обработки нажатия
+					let btnSwicthLed = document.getElementById("000");
+					btnSwicthLed.addEventListener('click', function() {
+						let xhr = new XMLHttpRequest();
+						xhr.open('GET', '/led_switch', false);
+						xhr.onload = () => {
+						if(+xhr.response) {
+							btnSwicthLed.classList.remove('switchStateOn');
+							btnSwicthLed.classList.add('switchStateOff');
+						}
+						else {
+							btnSwicthLed.classList.remove('switchStateOff');
+							btnSwicthLed.classList.add('switchStateOn');
+						}
+						}
+						xhr.send();
+					});
+				}
 				xhr.send();
 			});
 
-			let btnSwicthLed = document.getElementById("btnSwicthLed");
-			btnSwicthLed.addEventListener('click', function() {
-				let xhr = new XMLHttpRequest();
-				xhr.open('GET', '/led_switch', false);
-				xhr.send();
-			});
-
-			let btnGetJSON = document.getElementById("btnGetJSON");
-			btnGetJSON.addEventListener('click', function() {
-				for (let i = 0; i < 3; i++) {
-					addNewBrick(JsonDoc[i].info, JsonDoc[i].value, JsonDoc[i].time);
+			let btnOneExtendedJson = document.getElementById("btnOneExtendedJsonDoc");
+			btnOneExtendedJson.addEventListener('click', function() {
+				for (let id in oneExtendedJsonDoc) {
+					addNewBrick(oneExtendedJsonDoc[id].info, oneExtendedJsonDoc[id].value, oneExtendedJsonDoc[id].time);
 				}
 			});
 
-			function addNewBrick(info, value, time) {
+			function addNewBrick(id, info, value, time) {
 				let divBrick = document.createElement('div');
 				divBrick.classList.add('brick');
+				divBrick.id = id;
 
 				let divInfo = document.createElement('div');
 				divInfo.classList.add('text');
