@@ -25,44 +25,85 @@ const char *passFtp = "AnWiESPPass";
 ESP8266WebServer HTTP(80);
 FtpServer ftpSrv;
 
+DynamicJsonDocument gDoc(1024);
+
+String getgDoc(String id) {
+  DynamicJsonDocument doc(256);
+
+  doc["info"] = gDoc[id]["info"];
+  doc["value"] = gDoc[id]["value"];
+  doc["time"] = gDoc[id]["time"];
+
+  char buffer[256];
+  serializeJson(doc, buffer);
+  return buffer;
+} // doc[id] = serialized(getgDoc(id));
+
+String date = "15:15";
+
 void setup(void){
   pinMode(led, OUTPUT);
   Serial.begin(9600);
   
-  WiFi.begin(ssidSTA, passSTA);  //Connect to the WiFi network
-  Serial.print("Waiting to connect...");
-  while (WiFi.status() != WL_CONNECTED) {  //Wait for connection
-    delay(500);
-    Serial.print("...");
+  WiFi.begin(ssidSTA, passSTA);
+  Serial.print("Connect to " + String(ssidSTA));
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(100);
+    Serial.print(".");
   }
+  WiFi.setAutoReconnect(true);
   Serial.print("\nIP (STA) address: ");
-  Serial.println(WiFi.localIP());  //Print the local IP
+  Serial.println(WiFi.localIP());
   
-  WiFi.softAP(ssidSoftAP);
+  //WiFi.softAP(ssidSoftAP);
   //WiFi.softAPConfig(local_ipSoftAP, gatewaySoftAP, subnetSoftAP);
+  //Serial.print("IP (softAP) address: ");
+  //Serial.println(WiFi.softAPIP());
 
   SPIFFS.begin();
   HTTP.begin();
   ftpSrv.begin(userFtp, passFtp);
 
-  Serial.print("IP (softAP) address: ");
-  Serial.println(WiFi.softAPIP());
-
   HTTP.on("/led_switch", [](){
-    HTTP.send(200, "text/plain", led_switch());
+    HTTP.send(200, "application/json", led_switch());
   });
 
-  HTTP.on("/get_json", [](){
-    HTTP.send(200, "application/json", getJson());
+  HTTP.on("/getFromId", [](){
+    HTTP.send(200, "application/json", getFromId());
+  });
+
+  HTTP.on("/getIds", [](){
+    HTTP.send(200, "application/json", getIds());
   });
 
   HTTP.onNotFound([](){
     if(!handleFileRead(HTTP.uri()))
       HTTP.send(404, "text/plain", "Not Found");
   });
+
+  gDoc["000"]["info"] = "Переключить LED";
+  gDoc["000"]["value"] = false;
+  gDoc["000"]["time"] = date;
+
+  gDoc["001"]["info"] = "Датчик температуры";
+  gDoc["001"]["value"] = 22;
+  gDoc["001"]["time"] = date;
+
+  gDoc["002"]["info"] = "Датчик влажности";
+  gDoc["002"]["value"] = 63;
+  gDoc["002"]["time"] = date;
+
+  gDoc["003"]["info"] = "Датчик освещенности";
+  gDoc["003"]["value"] = false;
+  gDoc["003"]["time"] = "15:15";
+
+  gDoc["004"]["info"] = "Датчик давления";
+  gDoc["004"]["value"] = 680;
+  gDoc["004"]["time"] = date;
+
 }
  
-void loop(void){
+void loop(void) {
   HTTP.handleClient();
   ftpSrv.handleFTP();
 }
@@ -72,42 +113,44 @@ String led_switch() {
   if(digitalRead(led)) state = 0;
   else state = 1;
   digitalWrite(led, state);
-  return String(state);
-}
-
-String getJson() {  
-  StaticJsonDocument<256> jsonDoc;
-  JsonObject root = jsonDoc.to<JsonObject>();
-
-  JsonObject sensorLED = root.createNestedObject("000");
-  sensorLED["info"] = "Переключить LED";
-  sensorLED["value"] = (bool)digitalRead(led);
-  sensorLED["time"] = "15:15";
-
-  JsonObject sensorT = root.createNestedObject("001");
-  sensorT["info"] = "Датчик температуры в зале";
-  sensorT["value"] = 22;
-  sensorT["time"] = "15:15";
-
-  JsonObject sensorH = root.createNestedObject("002");
-  sensorH["info"] = "Датчик влажности в зале";
-  sensorH["value"] = 63;
-  sensorH["time"] = "15:15";
-
-  JsonObject sensorF = root.createNestedObject("003");
-  sensorF["info"] = "Датчик движения в зале";
-  sensorF["value"] = true;
-  sensorF["time"] = "15:15";
-
-  JsonObject sensorD = root.createNestedObject("004");
-  sensorD["info"] = "Датчик давления в зале";
-  sensorD["value"] = 680;
-  sensorD["time"] = "15:15";
-
-  char buffer[1024];
-  serializeJson(jsonDoc, buffer);
+  
+  DynamicJsonDocument doc(256);
+  doc["value"] = bool(state);
+  doc["time"] = date;
+  
+  char buffer[256];
+  serializeJson(doc, buffer);
   return buffer;
 }
+
+String getIds() {
+  DynamicJsonDocument doc(256);
+
+  doc[0] = "000";
+  doc[1] = "001";
+  doc[2] = "002";
+  doc[3] = "003";
+  doc[4] = "004";
+  
+  char buffer[256];
+  serializeJson(doc, buffer);
+  return buffer;
+}
+
+String getFromId() {
+  char buffer[1024];
+  DynamicJsonDocument doc(512);
+
+  for(int i = 0; i < HTTP.args(); i++) {
+    if(HTTP.argName(i) != "id") {
+      continue;
+    }
+    doc[HTTP.arg(i)] = serialized(getgDoc(HTTP.arg(i)));
+  }
+  serializeJson(doc, buffer);
+  return buffer;
+}
+
 
 bool handleFileRead(String path) {
   if(path.endsWith("/")) path += "index.html";

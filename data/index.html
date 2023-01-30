@@ -3,10 +3,13 @@
 
 	<head>
 		<meta charset="UTF-8">
-		<title>MyESP</title>
+		<title>AnWi</title>
 		<style>
 			body {
 				background: #212121;
+			}
+			.head {
+				font-size: 27px;
 			}
 			.brick {
 				width: 300px;
@@ -16,120 +19,194 @@
 				border-radius: 12px;
 				background: #50505077;
 			}
+			.brick[data-state="on"] {
+				background: #09490a3b;
+			}
+			.brick[data-state="off"] {
+				background: #4e070740;
+			}
 			.text {
 				color: rgba(150, 255, 200, 0.8);
 				font-family: Arial;
 				padding: 2px;
 			}
-			.switchStateOff {
-				background: #4e070740
-			}
-			.switchStateOff:active {
-				background: #50505077
-			}
-			.switchStateOn {
-				background: #09490a3b
-			}
-			.switchStateOn:active {
-				background: #50505077
-			}
+			
 		</style>
 	</head>
 	
 	<body>
-		<header>
-			<div>
-				<h1 class="text" id="header">Date</h1>
-			</div>
-		</header>
-
-		<div class="brick" id="btnOneExtendedJsonDoc">
-			<div class="text">btnOneExtendedJsonDoc</div>
-			<div class="text">...</div>
-			<div class="text">...</div>
-		</div>
-
-		<script>
-			"use strict";
-
-			let JsonDoc;
-			/*
-			JsonDoc = {
-				"000":{"info":"T", "value":15, "time":"12:56"}, 
-				"001":{"info":"H", "value":60, "time":"08:23"},
-				"002":{"info":"V", "value":34, "time":"12:56"}, 
-				"003":{"info":"B", "value":true, "time":"08:23"},
-			};
-			let oneExtendedJsonDoc = {
-				"000":{"info":"T", 
-						"value":[10, 11, 12, 13, 14, 15], 
-						"time":["07:56", "08:56", "09:56", "10:56", "11:56", "12:56"]}, 
-			};
-			*/
-			let header = document.getElementById('header');
-			let date = new Date();	/* перенести в отдельную функцию и добавить к нему обневение ежесекундно */
-			header.textContent = date.getDate() + '.' + (+date.getMonth()+1) + '.' + date.getFullYear();
+		<div>
+			<span class="head text">AnWi</span>
+			<span class="head text" id="test">+</span>
+			<span class="head text" id="hReload">обновить</span>
 			
-			window.addEventListener('load', function() {
-				let xhr = new XMLHttpRequest();
-				xhr.open('GET', '/get_json', true);
-				xhr.onload = () => {
-					JsonDoc = JSON.parse(xhr.response);
-					for (let id in JsonDoc) { // добавление элементов на экран
-						addNewBrick(id, JsonDoc[id].info, JsonDoc[id].value, JsonDoc[id].time);
+		</div>
+		<script>
+			'use strict';
+
+			/*
+				передача значений по их id на сервер (GET запрос: set?id=000&par1=val1)
+				создать сеттер значения в классе и в него внести вызов функции графического слушателя
+			*/
+
+			class Sensor {
+				// id info lastValue lastTime value[] time[] div
+				constructor(id, info, value, time) {
+					this.id = id;
+					this.info = info;
+					this.lastValue = value;
+					this.lastTime = time;
+					{
+						let divBrick = document.createElement('div');
+						divBrick.classList.add('brick');
+						divBrick.setAttribute('data-state', 'new');
+						divBrick.id = this.id;
+
+						let divInfo = document.createElement('div');
+						divInfo.classList.add('text');
+						divInfo.textContent = this.info;
+
+						let divValue = document.createElement('div');
+						divValue.classList.add('text');
+						divValue.textContent = this.lastValue;
+
+						let divTime = document.createElement('div');
+						divTime.classList.add('text');
+						divTime.textContent = this.lastTime;
+
+						document.body.append(divBrick);
+						divBrick.append(divInfo);
+						divBrick.append(divValue);
+						divBrick.append(divTime);
+
+						this.div = divBrick;
 					}
-
-					// выставим функцию для обработки нажатия
-					let btnSwicthLed = document.getElementById("000");
-					btnSwicthLed.addEventListener('click', function() {
-						let xhr = new XMLHttpRequest();
-						xhr.open('GET', '/led_switch', false);
-						xhr.onload = () => {
-						if(+xhr.response) {
-							btnSwicthLed.classList.remove('switchStateOn');
-							btnSwicthLed.classList.add('switchStateOff');
-						}
-						else {
-							btnSwicthLed.classList.remove('switchStateOff');
-							btnSwicthLed.classList.add('switchStateOn');
-						}
-						}
-						xhr.send();
-					});
 				}
-				xhr.send();
-			});
 
-			let btnOneExtendedJson = document.getElementById("btnOneExtendedJsonDoc");
-			btnOneExtendedJson.addEventListener('click', function() {
-				for (let id in oneExtendedJsonDoc) {
-					addNewBrick(oneExtendedJsonDoc[id].info, oneExtendedJsonDoc[id].value, oneExtendedJsonDoc[id].time);
+				update(value, time) {
+					this.lastValue = value;
+					this.lastTime = time;
+					this.div.children[1].textContent = value;
+					this.div.children[2].textContent = time;
 				}
-			});
-
-			function addNewBrick(id, info, value, time) {
-				let divBrick = document.createElement('div');
-				divBrick.classList.add('brick');
-				divBrick.id = id;
-
-				let divInfo = document.createElement('div');
-				divInfo.classList.add('text');
-				divInfo.textContent = info;
-
-				let divValue = document.createElement('div');
-				divValue.classList.add('text');
-				divValue.textContent = value;
-
-				let divTime = document.createElement('div');
-				divTime.classList.add('text');
-				divTime.textContent = time;
-
-				document.body.appendChild(divBrick);
-				divBrick.appendChild(divInfo);
-				divBrick.appendChild(divValue);
-				divBrick.appendChild(divTime);
 			}
 
+			let elements = new Map();
+
+			let hHead = document.getElementById('test');
+			hHead.addEventListener('click', function() {
+				let JsonDoc = {
+					'000': {'info': 'Переключить LED', 		'value': true, 	'time': '15:15'},
+					'001': {'info': 'Датчик температуры', 	'value': 22, 	'time': '15:15'},
+					'002': {'info': 'Датчик влажности', 	'value': 63, 	'time': '15:15'},
+					'003': {'info': 'Датчик освещенности', 	'value': true, 	'time': '15:15'},
+					'004': {'info': 'Датчик давления', 		'value': 680, 	'time': '15:15'},
+				};
+				initElements(JsonDoc);
+				installEventHandler();
+				installGraphicsHandler();
+			});
+
+			let getJSON = async () => {
+				const params = new URLSearchParams();
+				
+				let responseIds = await fetch('/getIds');
+				let ids = await responseIds.json();
+
+				for(let id in ids) {
+					params.append('id', ids[id]);
+				}
+
+				let responseData = await fetch(`/getFromId?${params.toString()}`);
+				let JsonDoc = await responseData.json();
+				
+				await new Promise((resolve, reject) => {
+					initElements(JsonDoc);
+					installEventHandler();
+					installGraphicsHandler();
+				});
+			};
+
+			window.addEventListener('load', getJSON);
+
+			let hReload = document.getElementById('hReload');
+			hReload.addEventListener('click', getJSON);
+			
+			function initElements(element) {
+				if(elements.has('000')) {
+					elements.get('000').update(element['000'].value, element['000'].time);
+				} else {
+					elements.set('000', new Sensor('000', element['000'].info, element['000'].value, element['000'].time));
+				}
+
+				if(elements.has('001')) {
+					elements.get('001').update(element['001'].value, element['001'].time);
+				} else {
+					elements.set('001', new Sensor('001', element['001'].info, element['001'].value, element['001'].time));
+				}
+
+				if(elements.has('002')) {
+					elements.get('002').update(element['002'].value, element['002'].time);
+				} else {
+					elements.set('002', new Sensor('002', element['002'].info, element['002'].value, element['002'].time));
+				}
+
+				if(elements.has('003')) {
+					elements.get('003').update(element['003'].value, element['003'].time);
+				} else {
+					elements.set('003', new Sensor('003', element['003'].info, element['003'].value, element['003'].time));
+				}
+
+				if(elements.has('004')) {
+					elements.get('004').update(element['004'].value, element['004'].time);
+				} else {
+					elements.set('004', new Sensor('004', element['004'].info, element['004'].value, element['004'].time));
+				}								
+			}	
+			
+			function installEventHandler() {
+				elements.get('000').div.addEventListener('click', function() {
+					fetch('/led_switch')
+						.then(response => response.json())
+						.then(JSON => {
+							elements.get('000').update(JSON.value, JSON.time);
+							installGraphicsHandler();
+						});
+				});
+				
+
+				elements.get('001').div.addEventListener('click', function() {
+					elements.get('001').div.style.backgroundColor = 'red';
+				});
+
+				elements.get('002').div.addEventListener('click', function() {
+					alert('002');
+				});
+
+				elements.get('003').div.addEventListener('click', function() {
+					alert('003');
+				});
+
+				elements.get('004').div.addEventListener('click', function() {
+					alert('004');
+				});
+			}
+
+			function installGraphicsHandler() {
+				if(elements.get('000').lastValue) {
+					elements.get('000').div.setAttribute('data-state', 'on');
+				}
+				else {
+					elements.get('000').div.setAttribute('data-state', 'off');
+				}
+
+				if(elements.get('001').lastValue < 30 && elements.get('001').lastValue > 20) {
+					elements.get('001').div.setAttribute('data-state', 'on');
+				}
+				else {
+					elements.get('001').div.setAttribute('data-state', 'off');
+				}
+			}
 		</script>
 	</body>
 	
